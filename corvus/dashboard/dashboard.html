@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Corvus</title>
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+  <div id="layout">
+
+    <!-- Activity bar -->
+    <nav id="activity-bar">
+      <div id="activity-logo">
+        <svg viewBox="0 0 56 56" fill="none">
+          <rect x="4" y="12" width="10" height="32" rx="2" fill="#4A90D9"/>
+          <rect x="4" y="12" width="38" height="10" rx="2" fill="#E8EDF4"/>
+          <rect x="4" y="34" width="38" height="10" rx="2" fill="#E8EDF4"/>
+          <rect x="32" y="12" width="10" height="10" rx="2" fill="#E8980A"/>
+          <rect x="32" y="34" width="10" height="10" rx="2" fill="#2970B8"/>
+        </svg>
+      </div>
+      <div id="activity-nav">
+        <button class="activity-btn" data-section="chats" title="Chats">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </button>
+        <button class="activity-btn" data-section="skills" title="Skills">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+        </button>
+        <button class="activity-btn" data-section="providers" title="Providers">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <button class="activity-btn" data-section="mcp" title="MCP Servers">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </button>
+        <button class="activity-btn" data-section="tools" title="Tools">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+        </button>
+        <button class="activity-btn" data-section="usage" title="Token Usage">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Section panel (list/tree) -->
+    <aside id="section-panel">
+      <div id="section-header">
+        <span id="section-title"></span>
+        <button id="section-action" class="hidden"></button>
+      </div>
+      <div id="section-list"></div>
+    </aside>
+
+    <!-- Main content -->
+    <main id="content">
+      <div id="content-empty">
+        <p>Select an item from the panel.</p>
+      </div>
+      <div id="content-body" class="hidden"></div>
+    </main>
+
+  </div>
+  <script src="dashboard.js"></script>
+</body>
+</html>

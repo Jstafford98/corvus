@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Corvus</title>
+  <link rel="stylesheet" href="sidebar.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- Tab strip -->
+    <nav id="tab-bar">
+      <button class="tab-btn active" data-tab="chat">Chat</button>
+      <button class="tab-btn" data-tab="history">History</button>
+      <button class="tab-btn" data-tab="skills">
+        Skills
+        <span id="skills-badge" class="hidden"></span>
+      </button>
+      <button id="settings-btn" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </nav>
+
+    <!-- Chat view -->
+    <div id="chat-view">
+      <div id="no-config-banner" class="hidden">
+        <p>No AI provider configured. <a href="#" id="open-settings-link">Open Settings</a></p>
+      </div>
+      <div id="messages" role="log" aria-live="polite"></div>
+      <div id="token-footer" class="hidden"></div>
+      <div id="tools-status" class="hidden">
+        <span id="tools-status-text"></span>
+      </div>
+      <form id="input-form">
+        <div id="input-row">
+          <textarea
+            id="user-input"
+            placeholder="Ask anything… or /skills to generate a skill"
+            rows="1"
+            autocomplete="off"
+            spellcheck="true"
+          ></textarea>
+          <button type="submit" id="send-btn" title="Send">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+          <button type="button" id="stop-btn" class="hidden" title="Stop">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <rect x="5" y="5" width="14" height="14" rx="2"/>
+            </svg>
+          </button>
+        </div>
+        <div id="tools-row">
+          <label class="tool-toggle" title="Include screenshot with your message">
+            <input type="checkbox" id="screenshot-toggle" />
+            <span>Screenshot</span>
+          </label>
+          <label class="tool-toggle" title="Include page content with your message">
+            <input type="checkbox" id="page-content-toggle" />
+            <span>Page content</span>
+          </label>
+          <select id="model-select" title="Model"></select>
+        </div>
+      </form>
+    </div>
+
+    <!-- History view -->
+    <div id="history-view" class="hidden">
+      <div id="history-header">
+        <span>Conversations</span>
+        <button id="new-chat-btn">+ New</button>
+      </div>
+      <div id="history-list"></div>
+    </div>
+
+    <!-- Skills view -->
+    <div id="skills-view" class="hidden">
+      <div id="skills-panel-header">
+        <span>Skills</span>
+        <div id="skills-panel-actions">
+          <button id="generate-skill-btn" title="Generate a skill for the current page">Generate</button>
+          <a href="#" id="manage-skills-link">Manage</a>
+        </div>
+      </div>
+      <div id="skills-list"></div>
+    </div>
+
+  </div>
+  <script src="sidebar.js"></script>
+</body>
+</html>

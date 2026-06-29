@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Corvus — Skills</title>
+  <link rel="stylesheet" href="skills.css" />
+</head>
+<body>
+  <div id="layout">
+    <aside id="skill-list-panel">
+      <div id="list-header">
+        <span>Skills</span>
+        <button id="new-btn">+ New</button>
+      </div>
+      <div id="skill-list"></div>
+    </aside>
+
+    <main id="editor-panel">
+      <div id="editor-empty">
+        <p>Select a skill to edit, or create a new one.</p>
+        <p class="hint">Skills are injected into the AI's system prompt when active. Use them to teach the AI site-specific knowledge, personas, or workflows.</p>
+      </div>
+
+      <form id="editor-form" class="hidden">
+        <div class="field">
+          <label for="skill-name">Name</label>
+          <input id="skill-name" type="text" placeholder="YouTube Navigation" maxlength="80" />
+        </div>
+
+        <div class="field">
+          <label for="skill-description">Description <span class="optional">(shown in sidebar picker)</span></label>
+          <input id="skill-description" type="text" placeholder="How to find and play videos on YouTube" maxlength="160" />
+        </div>
+
+        <div class="field">
+          <label for="skill-url-pattern">
+            URL pattern <span class="optional">(auto-suggest when tab matches)</span>
+          </label>
+          <input id="skill-url-pattern" type="text" placeholder="*youtube.com*" maxlength="200" />
+          <p class="hint">Use <code>*</code> as a wildcard. Leave blank to activate manually only.</p>
+        </div>
+
+        <div class="field field-grow">
+          <label for="skill-content">Skill content</label>
+          <textarea
+            id="skill-content"
+            placeholder="Describe what the AI should know or do. Markdown is supported.
+
+Example:
+## YouTube Navigation
+
+The search bar selector is `input#search`. To search:
+1. call type_text with selector `input#search`
+2. call click_element with selector `button#search-icon-legacy`
+
+Video links are `a#video-title` elements. Their href is the full video URL."
+            spellcheck="true"
+          ></textarea>
+        </div>
+
+        <div id="editor-actions">
+          <button type="button" id="delete-btn" class="danger hidden">Delete</button>
+          <div id="editor-actions-right">
+            <span id="save-status"></span>
+            <button type="submit" id="save-btn">Save</button>
+          </div>
+        </div>
+      </form>
+    </main>
+  </div>
+  <script src="skills.js"></script>
+</body>
+</html>

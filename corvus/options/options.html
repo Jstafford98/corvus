@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Corvus — Settings</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div id="page">
+    <header>
+      <h1>Corvus Settings</h1>
+    </header>
+
+    <main>
+      <section>
+        <h2>Provider</h2>
+        <div class="field">
+          <label for="provider">AI Provider</label>
+          <select id="provider">
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="openai">OpenAI</option>
+            <option value="openai-compatible">OpenAI-compatible (custom URL)</option>
+          </select>
+        </div>
+
+        <div class="field" id="base-url-field">
+          <label for="base-url">Base URL</label>
+          <input
+            type="url"
+            id="base-url"
+            placeholder="http://localhost:11434"
+            autocomplete="off"
+          />
+          <p class="hint">Used for OpenAI-compatible providers (Ollama, LM Studio, etc.).</p>
+        </div>
+
+        <div class="field">
+          <label for="api-key">API Key</label>
+          <input
+            type="password"
+            id="api-key"
+            placeholder="sk-…"
+            autocomplete="off"
+          />
+          <p class="hint">Stored locally in your browser. Never sent anywhere except the AI provider.</p>
+        </div>
+
+        <div class="field">
+          <label for="model">Model</label>
+          <input
+            type="text"
+            id="model"
+            placeholder="Leave blank for default"
+            autocomplete="off"
+          />
+          <p class="hint" id="model-hint">Default: claude-sonnet-4-6</p>
+        </div>
+      </section>
+
+      <div id="status" class="hidden"></div>
+
+      <div class="actions">
+        <button id="save-btn">Save</button>
+        <button id="test-btn" class="secondary">Test connection</button>
+      </div>
+    </main>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>
