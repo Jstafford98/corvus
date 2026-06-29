@@ -1,6 +1,8 @@
-# Corvus
-
-An AI sidebar assistant for Firefox with browser control tools, conversation history, a skills system, and MCP server support.
+<div align="center">
+  <img src="corvus/icons/corvus.svg" width="80" height="80" alt="Corvus" />
+  <h1>Corvus</h1>
+  <p>An AI sidebar assistant for Firefox with browser control tools, conversation history, a skills system, and MCP server support.</p>
+</div>
 
 ---
 
