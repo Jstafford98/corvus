@@ -33,7 +33,7 @@ Every tool call shows an approval card before execution — you can allow, deny,
 
 **Skills** — markdown documents injected into the AI's context to give it site-specific knowledge. Generate them automatically for the current page, edit them, enable/disable per session. The AI can also generate skills on demand with `/skills`.
 
-**MCP server support** — connect any local [MCP](https://modelcontextprotocol.io) server (Streamable HTTP transport) to expose custom deterministic tools. Add servers in the dashboard, test the connection, and the AI gains access to their tools automatically. Useful for building personal integrations like transcript fetchers, knowledge base queries, or anything you want a reliable single-step tool for.
+**MCP server support** — connect any local MCP server (Streamable HTTP transport) to expose custom deterministic tools. Add servers in the dashboard, test the connection, and the AI gains access to their tools automatically. Useful for building personal integrations like transcript fetchers, knowledge base queries, or anything you want a reliable single-step tool for.
 
 **Conversation history** — conversations persist locally in `browser.storage`. Resume any past session from the History tab.
 
@@ -96,8 +96,6 @@ Your API key is stored locally in `browser.storage.local` and is never sent anyw
 ---
 
 ## MCP servers
-
-Corvus supports the [MCP Streamable HTTP transport](https://spec.modelcontextprotocol.io) (protocol version `2024-11-05`). Your server needs to accept POST requests with JSON-RPC 2.0 bodies at a single endpoint and respond with either `application/json` or `text/event-stream`.
 
 To add a server:
 1. Open the dashboard → **MCP Servers**
