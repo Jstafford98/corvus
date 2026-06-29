@@ -72,23 +72,6 @@ function showContent(el) {
   contentBody.appendChild(el);
 }
 
-function escHtml(s) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-function relTime(ts) {
-  const d = Date.now() - ts, m = Math.floor(d / 60000);
-  if (m < 1)  return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const days = Math.floor(h / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(ts).toLocaleDateString();
-}
-
 // ---------------------------------------------------------------------------
 // Chats section
 // ---------------------------------------------------------------------------
@@ -116,8 +99,8 @@ function renderChatList() {
     const row = document.createElement("div");
     row.className = "list-item" + (entry.id === selectedItem ? " active" : "");
     row.innerHTML = `
-      <div class="list-item-title">${escHtml(entry.title)}</div>
-      <div class="list-item-meta">${relTime(entry.ts)}</div>
+      <div class="list-item-title">${escapeHtml(entry.title)}</div>
+      <div class="list-item-meta">${formatRelativeTime(entry.ts)}</div>
     `;
     row.addEventListener("click", () => openChat(entry.id));
     sectionList.appendChild(row);
@@ -141,7 +124,7 @@ async function openChat(id) {
   header.id = "chat-view-header";
   header.innerHTML = `
     <div>
-      <div id="chat-view-title">${escHtml(entry.title)}</div>
+      <div id="chat-view-title">${escapeHtml(entry.title)}</div>
       <div id="chat-view-time">${new Date(entry.ts).toLocaleString()}</div>
     </div>
     <button id="chat-delete-btn" class="btn btn-danger">Delete</button>
@@ -182,7 +165,7 @@ async function openChat(id) {
 
       const el = document.createElement("div");
       el.className = "chat-msg user";
-      el.innerHTML = `<div class="chat-msg-role">You</div><div class="chat-msg-bubble">${escHtml(text)}</div>`;
+      el.innerHTML = `<div class="chat-msg-role">You</div><div class="chat-msg-bubble">${escapeHtml(text)}</div>`;
       msgs.appendChild(el);
 
     } else if (msg.role === "assistant") {
@@ -262,8 +245,8 @@ function renderSkillList() {
     const row = document.createElement("div");
     row.className = "list-item" + (skill.id === selectedItem ? " active" : "");
     row.innerHTML = `
-      <div class="list-item-title">${escHtml(skill.name || "Untitled")}</div>
-      <div class="list-item-meta">${escHtml(skill.urlPattern || skill.description || "")}</div>
+      <div class="list-item-title">${escapeHtml(skill.name || "Untitled")}</div>
+      <div class="list-item-meta">${escapeHtml(skill.urlPattern || skill.description || "")}</div>
     `;
     row.addEventListener("click", () => openSkillEditor(skill.id));
     sectionList.appendChild(row);
@@ -284,7 +267,7 @@ function openSkillEditor(id) {
   const header = document.createElement("div");
   header.id = "skill-editor-header";
   header.innerHTML = `
-    <div id="skill-editor-title">${skill ? escHtml(skill.name) : "New Skill"}</div>
+    <div id="skill-editor-title">${skill ? escapeHtml(skill.name) : "New Skill"}</div>
     <div id="skill-editor-actions">
       <span id="skill-save-status"></span>
       ${skill ? '<button class="btn btn-danger" id="skill-delete-btn">Delete</button>' : ""}
@@ -299,20 +282,20 @@ function openSkillEditor(id) {
   form.innerHTML = `
     <div class="field">
       <label>Name</label>
-      <input id="skill-name" type="text" value="${escHtml(skill?.name ?? "")}" placeholder="YouTube Navigation" maxlength="80" />
+      <input id="skill-name" type="text" value="${escapeHtml(skill?.name ?? "")}" placeholder="YouTube Navigation" maxlength="80" />
     </div>
     <div class="field">
       <label>Description <span style="font-weight:400;text-transform:none">(shown in sidebar picker)</span></label>
-      <input id="skill-desc" type="text" value="${escHtml(skill?.description ?? "")}" placeholder="How to find and play videos on YouTube" maxlength="160" />
+      <input id="skill-desc" type="text" value="${escapeHtml(skill?.description ?? "")}" placeholder="How to find and play videos on YouTube" maxlength="160" />
     </div>
     <div class="field">
       <label>URL pattern <span style="font-weight:400;text-transform:none">(auto-activate on matching pages)</span></label>
-      <input id="skill-pattern" type="text" value="${escHtml(skill?.urlPattern ?? "")}" placeholder="*youtube.com*" maxlength="200" />
+      <input id="skill-pattern" type="text" value="${escapeHtml(skill?.urlPattern ?? "")}" placeholder="*youtube.com*" maxlength="200" />
       <span class="hint">Use <code>*</code> as a wildcard. Leave blank for manual activation only.</span>
     </div>
     <div class="field-grow">
       <label>Content</label>
-      <textarea id="skill-content-textarea" placeholder="Write what the AI should know about this site — selectors, common tasks, gotchas…">${escHtml(skill?.content ?? "")}</textarea>
+      <textarea id="skill-content-textarea" placeholder="Write what the AI should know about this site — selectors, common tasks, gotchas…">${escapeHtml(skill?.content ?? "")}</textarea>
     </div>
   `;
   wrap.appendChild(form);
@@ -379,55 +362,6 @@ function flash(el, msg, cls) {
 // ---------------------------------------------------------------------------
 // Providers section
 // ---------------------------------------------------------------------------
-
-async function fetchProviderModels(provider, apiKey, baseUrl) {
-  if (!apiKey) return [];
-  const cacheKey = `${provider}__${baseUrl || ""}`;
-  const TTL = 24 * 60 * 60 * 1000;
-  const { modelsCache = {} } = await browser.storage.local.get("modelsCache");
-  const cached = modelsCache[cacheKey];
-  if (cached && Date.now() - cached.ts < TTL) return cached.models;
-
-  let models = [];
-  try {
-    if (provider === "anthropic") {
-      const res = await fetch("https://api.anthropic.com/v1/models?limit=100", {
-        headers: {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        models = (data.data || []).map((m) => ({ id: m.id, label: m.display_name || m.id }));
-      }
-    } else {
-      const base = (baseUrl || "https://api.openai.com").replace(/\/$/, "");
-      const res = await fetch(`${base}/v1/models`, {
-        headers: { authorization: `Bearer ${apiKey}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        models = (data.data || []).map((m) => ({ id: m.id, label: m.id }));
-        if (provider === "openai") {
-          models = models.filter((m) =>
-            /^(gpt-|o\d|chatgpt-)/.test(m.id) &&
-            !/(realtime|audio|search|vision-preview)/.test(m.id)
-          );
-        }
-        models.sort((a, b) => b.id.localeCompare(a.id));
-      }
-    }
-  } catch {
-    return cached?.models || [];
-  }
-  if (models.length) {
-    modelsCache[cacheKey] = { models, ts: Date.now() };
-    await browser.storage.local.set({ modelsCache });
-  }
-  return models.length ? models : (cached?.models || []);
-}
 
 async function loadProvidersSection(initialItem = "provider") {
   sectionTitle.textContent = "Providers";
@@ -607,9 +541,6 @@ async function showProviderForm() {
   });
 }
 
-const DEFAULT_SYSTEM_PROMPT =
-  "You are a helpful AI browser assistant. You can see the user's screen, navigate pages, click elements, and type text. Be concise. When using tools, explain briefly what you're doing.";
-
 async function showSystemPromptForm() {
   const { systemPromptBase } = await browser.storage.local.get("systemPromptBase");
 
@@ -647,24 +578,22 @@ async function showSystemPromptForm() {
   });
 }
 
-function escapeHtml(str) {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
 // ---------------------------------------------------------------------------
 // MCP Servers section
 // ---------------------------------------------------------------------------
 
 async function testMcpConnection(url) {
+  let sessionId = null;
+
   async function post(method, params, id) {
     const body = { jsonrpc: "2.0", method, params: params ?? {} };
     if (id != null) body.id = id;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json", "accept": "application/json, text/event-stream" },
-      body: JSON.stringify(body),
-    });
+    const headers = { "content-type": "application/json", "accept": "application/json, text/event-stream" };
+    if (sessionId) headers["mcp-session-id"] = sessionId;
+    const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const returned = res.headers.get("mcp-session-id");
+    if (returned) sessionId = returned;
     const ct = res.headers.get("content-type") || "";
     if (ct.includes("text/event-stream")) {
       const text = await res.text();
@@ -902,6 +831,8 @@ const TOOLS_DEFAULTS = [
   { name: "inspect_element",  label: "Inspect Element",   description: "Returns detailed information about a DOM element: all attributes, src/currentSrc/href, child <source> elements, text tracks, bounding rect, and a snippet of innerHTML/innerText. Use this to find where media is loaded from, inspect video sources, or understand element structure." },
   { name: "get_resource_urls",label: "Get Resource URLs", description: "Returns all network resources loaded by the page via the Performance API, plus all media element sources (video, audio, img). Includes URL, initiator type, duration, and transfer size. Use this to find CDN URLs, media stream origins, or any asset loaded by the page. Optionally filter by keyword." },
   { name: "execute_script",   label: "Execute Script",    description: "Executes arbitrary JavaScript in the active tab's page context and returns the result. Use this for advanced inspection: reading JS variables, checking media state (video.currentSrc, video.readyState), inspecting window objects, or anything not covered by other tools. The result is JSON-serialized." },
+  { name: "list_mcp_servers", label: "List MCP Servers",  description: "Returns all configured MCP servers with their connection status, tool count, and any connection error. Use this to check which external tool servers are available." },
+  { name: "list_mcp_tools",   label: "List MCP Tools",    description: "Returns every tool exposed by connected MCP servers — their exact call names, descriptions, and input schemas. The name field in each result is directly callable as a tool — no special syntax needed." },
 ];
 
 async function loadToolsSection() {
@@ -1107,7 +1038,7 @@ async function loadUsageSection() {
     const card = document.createElement("div");
     card.className = "usage-provider-card" + (pTotal === 0 ? " usage-provider-empty" : "");
     card.innerHTML = `
-      <div class="usage-provider-name">${escHtml(PROVIDER_NAMES[p] || p)}</div>
+      <div class="usage-provider-name">${escapeHtml(PROVIDER_NAMES[p] || p)}</div>
       <div class="usage-provider-total">${pTotal.toLocaleString()}</div>
       <div class="usage-provider-breakdown">
         <span class="usage-in-badge">↑ ${pStats.input.toLocaleString()}</span>
@@ -1133,55 +1064,6 @@ async function loadUsageSection() {
   wrap.appendChild(actions);
 
   showContent(wrap);
-}
-
-// ---------------------------------------------------------------------------
-// Markdown rendering (matches sidebar.js)
-// ---------------------------------------------------------------------------
-
-function inlineMarkdown(text) {
-  return escHtml(text)
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-}
-
-function renderMarkdown(raw) {
-  const lines = raw.split("\n");
-  const parts = [];
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    if (line.startsWith("```")) {
-      const codeLines = [];
-      i++;
-      while (i < lines.length && !lines[i].startsWith("```")) { codeLines.push(lines[i]); i++; }
-      parts.push(`<pre><code>${escHtml(codeLines.join("\n"))}</code></pre>`);
-      i++; continue;
-    }
-    const hm = line.match(/^(#{1,6})\s+(.+)/);
-    if (hm) { parts.push(`<h${hm[1].length}>${inlineMarkdown(hm[2])}</h${hm[1].length}>`); i++; continue; }
-    if (/^[-*_]{3,}\s*$/.test(line)) { parts.push("<hr>"); i++; continue; }
-    if (/^[-*+]\s/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^[-*+]\s/.test(lines[i])) { items.push(`<li>${inlineMarkdown(lines[i].replace(/^[-*+]\s+/, ""))}</li>`); i++; }
-      parts.push(`<ul>${items.join("")}</ul>`); continue;
-    }
-    if (/^\d+\.\s/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^\d+\.\s/.test(lines[i])) { items.push(`<li>${inlineMarkdown(lines[i].replace(/^\d+\.\s+/, ""))}</li>`); i++; }
-      parts.push(`<ol>${items.join("")}</ol>`); continue;
-    }
-    if (line.trim() === "") { i++; continue; }
-    const paraLines = [];
-    while (i < lines.length && lines[i].trim() !== "" && !lines[i].startsWith("#") && !lines[i].startsWith("```") && !/^[-*+]\s/.test(lines[i]) && !/^\d+\.\s/.test(lines[i]) && !/^[-*_]{3,}\s*$/.test(lines[i])) {
-      paraLines.push(inlineMarkdown(lines[i])); i++;
-    }
-    if (paraLines.length) parts.push(`<p>${paraLines.join("<br>")}</p>`);
-  }
-  return parts.join("\n");
 }
 
 function flashStatus(el, msg, cls) {

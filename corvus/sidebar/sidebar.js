@@ -106,6 +106,27 @@ const TOOLS = [
       required: ["code"],
     },
   },
+  {
+    name: "list_mcp_servers",
+    description:
+      "Returns all configured MCP servers with their connection status, tool count, and any connection error. Use this to check which external tool servers are available, or to get a server's id before calling list_mcp_tools.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "list_mcp_tools",
+    description:
+      "Returns every tool exposed by connected MCP servers — their exact call names, descriptions, and input schemas. The `name` field in each result is the exact tool name to use in a tool_use block; no special syntax is needed. Use this when the user asks what MCP tools are available, or to look up a tool's schema before calling it. Optionally filter to one server with server_id.",
+    input_schema: {
+      type: "object",
+      properties: {
+        server_id: {
+          type: "string",
+          description: "Optional. ID of a specific server (from list_mcp_servers) to filter results.",
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 function getEffectiveTools() {
@@ -210,7 +231,6 @@ async function init() {
     // Delegate to the slash command handler so everything goes through the same flow
     appendUserMessage("/skills generate a skill for the current page based on its content and structure", null);
     generateSkillBtn.disabled = true;
-    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
     const pageResult = await browser.runtime.sendMessage({ type: "GET_PAGE_CONTENT" });
     const pageContext = pageResult?.content
       ? `The current page: title="${pageResult.content.title}", url="${pageResult.content.url}"\n\n${pageResult.content.text?.slice(0, 4000)}`
@@ -289,66 +309,21 @@ async function loadConfig() {
 
 async function loadMcpTools() {
   try {
-    const payload = await browser.runtime.sendMessage({ type: "GET_MCP_TOOLS" });
-    mcpTools = payload.tools || [];
-    mcpToolMeta = payload.meta || {};
+    let payload = await browser.runtime.sendMessage({ type: "GET_MCP_TOOLS" });
+    // If the background cache is empty, it may still be mid-connect. If there
+    // are enabled servers configured, trigger a connect and wait for the result.
+    if (!payload.tools?.length) {
+      const { mcpServers = [] } = await browser.storage.local.get("mcpServers");
+      if (mcpServers.some((s) => s.enabled !== false)) {
+        payload = await browser.runtime.sendMessage({ type: "REFRESH_MCP_SERVERS" });
+      }
+    }
+    mcpTools = payload?.tools || [];
+    mcpToolMeta = payload?.meta || {};
   } catch {
     mcpTools = [];
     mcpToolMeta = {};
   }
-}
-
-async function fetchModels() {
-  if (!config.apiKey) return [];
-
-  const cacheKey = `${config.provider}__${config.baseUrl || ""}`;
-  const TTL = 24 * 60 * 60 * 1000;
-
-  const { modelsCache = {} } = await browser.storage.local.get("modelsCache");
-  const cached = modelsCache[cacheKey];
-  if (cached && Date.now() - cached.ts < TTL) return cached.models;
-
-  let models = [];
-  try {
-    if (config.provider === "anthropic") {
-      const res = await fetch("https://api.anthropic.com/v1/models?limit=100", {
-        headers: {
-          "x-api-key": config.apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        models = (data.data || []).map((m) => ({ id: m.id, label: m.display_name || m.id }));
-      }
-    } else if (config.provider === "openai" || config.provider === "openai-compatible") {
-      const baseUrl = (config.baseUrl || "https://api.openai.com").replace(/\/$/, "");
-      const res = await fetch(`${baseUrl}/v1/models`, {
-        headers: { authorization: `Bearer ${config.apiKey}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        models = (data.data || []).map((m) => ({ id: m.id, label: m.id }));
-        if (config.provider === "openai") {
-          models = models.filter((m) =>
-            /^(gpt-|o\d|chatgpt-)/.test(m.id) &&
-            !/(realtime|audio|search|vision-preview)/.test(m.id)
-          );
-        }
-        models.sort((a, b) => b.id.localeCompare(a.id));
-      }
-    }
-  } catch {
-    return cached?.models || [];
-  }
-
-  if (models.length) {
-    modelsCache[cacheKey] = { models, ts: Date.now() };
-    await browser.storage.local.set({ modelsCache });
-  }
-
-  return models.length ? models : (cached?.models || []);
 }
 
 async function populateModelSelect() {
@@ -361,7 +336,7 @@ async function populateModelSelect() {
   modelSelectEl.disabled = true;
   modelSelectEl.innerHTML = "<option>Loading…</option>";
 
-  const models = await fetchModels();
+  const models = await fetchProviderModels(config.provider, config.apiKey, config.baseUrl);
 
   modelSelectEl.disabled = false;
   modelSelectEl.innerHTML = "";
@@ -522,11 +497,8 @@ async function renderSkillsPanel() {
   }
 }
 
-const DEFAULT_SYSTEM_PROMPT_BASE =
-  "You are a helpful AI browser assistant. You can see the user's screen, navigate pages, click elements, and type text. Be concise. When using tools, explain briefly what you're doing.";
-
 function buildSystemPrompt() {
-  const base = customSystemPromptBase || DEFAULT_SYSTEM_PROMPT_BASE;
+  const base = customSystemPromptBase || DEFAULT_SYSTEM_PROMPT;
 
   const parts = [base];
 
@@ -538,6 +510,14 @@ function buildSystemPrompt() {
       `[Token usage — this conversation: ${convTokens.input.toLocaleString()} input, ${convTokens.output.toLocaleString()} output` +
       (allTotal > 0 ? `; all-time: ${allTimeTokens.input.toLocaleString()} input, ${allTimeTokens.output.toLocaleString()} output` : "") +
       `]`
+    );
+  }
+
+  if (mcpTools.length) {
+    parts.push(
+      `[MCP tools connected and callable by name: ${mcpTools.map((t) => t.name).join(", ")}. ` +
+      `Use them exactly like built-in tools — no special syntax. ` +
+      `Call list_mcp_tools to see their descriptions and schemas.]`
     );
   }
 
@@ -704,18 +684,6 @@ async function renderHistoryList() {
     });
     historyList.appendChild(item);
   }
-}
-
-function formatRelativeTime(ts) {
-  const diff = Date.now() - ts;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(ts).toLocaleDateString();
 }
 
 // ---------------------------------------------------------------------------
@@ -1322,6 +1290,10 @@ async function executeTool(name, input) {
       return browser.runtime.sendMessage({ type: "GET_RESOURCE_URLS", filter: input.filter || "" });
     case "execute_script":
       return browser.runtime.sendMessage({ type: "EXECUTE_SCRIPT", code: input.code });
+    case "list_mcp_servers":
+      return browser.runtime.sendMessage({ type: "GET_MCP_SERVERS" });
+    case "list_mcp_tools":
+      return browser.runtime.sendMessage({ type: "LIST_MCP_TOOLS", serverId: input.server_id });
     default:
       if (name.startsWith("mcp__")) {
         const parts = name.split("__");
@@ -1381,6 +1353,8 @@ function describeToolCall(name, input) {
     case "inspect_element":   return `Inspect element:\n${input?.selector ?? ""}`;
     case "get_resource_urls": return `List all network resources loaded by this page${input?.filter ? `\nFilter: "${input.filter}"` : ""}`;
     case "execute_script":    return `Run JavaScript:\n${(input?.code ?? "").slice(0, 300)}`;
+    case "list_mcp_servers":  return "List connected MCP servers";
+    case "list_mcp_tools":    return `List MCP tools${input?.server_id ? ` for server "${input.server_id}"` : ""}`;
     default: {
       const m = mcpToolMeta[name];
       const header = m ? `${m.serverName} — ${m.label}` : name;
@@ -1529,6 +1503,8 @@ const TOOL_META = {
   inspect_element:   { label: "Inspect element",  icon: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" },
   get_resource_urls: { label: "Resource URLs",    icon: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" },
   execute_script:    { label: "Execute script",   icon: "M8 6l6 6-6 6" },
+  list_mcp_servers:  { label: "List MCP servers", icon: "M12 2L2 7l10 5 10-5-10-5z M2 17l10 5 10-5 M2 12l10 5 10-5" },
+  list_mcp_tools:    { label: "List MCP tools",   icon: "M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01" },
 };
 
 // result=null → pending; result.restored → history; otherwise success/error
@@ -1656,108 +1632,6 @@ function hideToolStatus() {
 
 function scrollToBottom() {
   messagesEl.scrollTop = messagesEl.scrollHeight;
-}
-
-function inlineMarkdown(text) {
-  return escapeHtml(text)
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-}
-
-function renderMarkdown(raw) {
-  const lines = raw.split("\n");
-  const parts = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // Fenced code block
-    if (line.startsWith("```")) {
-      const codeLines = [];
-      i++;
-      while (i < lines.length && !lines[i].startsWith("```")) {
-        codeLines.push(lines[i]);
-        i++;
-      }
-      parts.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
-      i++;
-      continue;
-    }
-
-    // Heading
-    const hm = line.match(/^(#{1,6})\s+(.+)/);
-    if (hm) {
-      parts.push(`<h${hm[1].length}>${inlineMarkdown(hm[2])}</h${hm[1].length}>`);
-      i++;
-      continue;
-    }
-
-    // Horizontal rule
-    if (/^[-*_]{3,}\s*$/.test(line)) {
-      parts.push("<hr>");
-      i++;
-      continue;
-    }
-
-    // Unordered list — collect consecutive items
-    if (/^[-*+]\s/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^[-*+]\s/.test(lines[i])) {
-        items.push(`<li>${inlineMarkdown(lines[i].replace(/^[-*+]\s+/, ""))}</li>`);
-        i++;
-      }
-      parts.push(`<ul>${items.join("")}</ul>`);
-      continue;
-    }
-
-    // Ordered list — collect consecutive items
-    if (/^\d+\.\s/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
-        items.push(`<li>${inlineMarkdown(lines[i].replace(/^\d+\.\s+/, ""))}</li>`);
-        i++;
-      }
-      parts.push(`<ol>${items.join("")}</ol>`);
-      continue;
-    }
-
-    // Empty line — paragraph break (skip)
-    if (line.trim() === "") {
-      i++;
-      continue;
-    }
-
-    // Paragraph — collect consecutive plain lines
-    const paraLines = [];
-    while (
-      i < lines.length &&
-      lines[i].trim() !== "" &&
-      !lines[i].startsWith("#") &&
-      !lines[i].startsWith("```") &&
-      !/^[-*+]\s/.test(lines[i]) &&
-      !/^\d+\.\s/.test(lines[i]) &&
-      !/^[-*_]{3,}\s*$/.test(lines[i])
-    ) {
-      paraLines.push(inlineMarkdown(lines[i]));
-      i++;
-    }
-    if (paraLines.length) parts.push(`<p>${paraLines.join("<br>")}</p>`);
-  }
-
-  return parts.join("\n");
-}
-
-function escapeHtml(str) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 function autoResizeTextarea() {

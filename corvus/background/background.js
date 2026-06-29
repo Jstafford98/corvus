@@ -3,7 +3,7 @@
 // Session state — lives in memory, clears on browser restart
 let sidebarState = { convId: null };
 
-// MCP server cache: id → { name, url, tools[], error? }
+// MCP server cache: id → { name, url, tools[], sessionId?, error? }
 let mcpCache = {};
 
 browser.browserAction.onClicked.addListener(() => {
@@ -27,6 +27,8 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "GET_MCP_TOOLS")       return Promise.resolve(getMcpToolsPayload());
   if (message.type === "REFRESH_MCP_SERVERS") return initMcpServers().then(() => getMcpToolsPayload());
   if (message.type === "CALL_MCP_TOOL")       return callMcpTool(message.serverId, message.toolName, message.input);
+  if (message.type === "GET_MCP_SERVERS")     return Promise.resolve(getMcpServersList());
+  if (message.type === "LIST_MCP_TOOLS")      return Promise.resolve(getMcpToolsCatalog(message.serverId));
 });
 
 browser.storage.onChanged.addListener((changes, area) => {
@@ -39,21 +41,24 @@ initMcpServers();
 // MCP — Streamable HTTP transport (2024-11-05 protocol version)
 // ---------------------------------------------------------------------------
 
-async function mcpPost(url, method, params, id) {
+// sessionId comes from the `mcp-session-id` HTTP response header on initialize
+// and must be echoed back as an HTTP request header on all subsequent requests.
+async function mcpPost(url, method, params, id, sessionId) {
   const body = { jsonrpc: "2.0", method, params: params ?? {} };
   if (id != null) body.id = id;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json", "accept": "application/json, text/event-stream" },
-    body: JSON.stringify(body),
-  });
+  const headers = { "content-type": "application/json", "accept": "application/json, text/event-stream" };
+  if (sessionId) headers["mcp-session-id"] = sessionId;
+
+  const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+  const newSessionId = res.headers.get("mcp-session-id");
   const ct = res.headers.get("content-type") || "";
   const data = ct.includes("text/event-stream")
     ? parseMcpSse(await res.text(), id)
     : await res.json();
   if (data?.error) throw new Error(data.error.message || JSON.stringify(data.error));
-  return data;
+  return { data, sessionId: newSessionId };
 }
 
 function parseMcpSse(text, id) {
@@ -73,14 +78,14 @@ function parseMcpSse(text, id) {
 }
 
 async function discoverMcpTools(url) {
-  await mcpPost(url, "initialize", {
+  const { data: _, sessionId } = await mcpPost(url, "initialize", {
     protocolVersion: "2024-11-05",
     capabilities: {},
     clientInfo: { name: "Corvus", version: "1.0" },
-  }, 1);
-  mcpPost(url, "notifications/initialized", {}, null).catch(() => {});
-  const resp = await mcpPost(url, "tools/list", {}, 2);
-  return resp.result?.tools || [];
+  }, 1, null);
+  mcpPost(url, "notifications/initialized", {}, null, sessionId).catch(() => {});
+  const { data: resp } = await mcpPost(url, "tools/list", {}, 2, sessionId);
+  return { tools: resp.result?.tools || [], sessionId };
 }
 
 async function initMcpServers() {
@@ -91,8 +96,8 @@ async function initMcpServers() {
       .filter((s) => s.enabled !== false)
       .map(async (server) => {
         try {
-          const tools = await discoverMcpTools(server.url);
-          mcpCache[server.id] = { name: server.name, url: server.url, tools };
+          const { tools, sessionId } = await discoverMcpTools(server.url);
+          mcpCache[server.id] = { name: server.name, url: server.url, tools, sessionId };
         } catch (err) {
           mcpCache[server.id] = { name: server.name, url: server.url, tools: [], error: err.message };
         }
@@ -122,14 +127,47 @@ function getMcpToolsPayload() {
   return { tools, meta };
 }
 
+function getMcpServersList() {
+  return Object.entries(mcpCache).map(([id, server]) => ({
+    id,
+    name: server.name,
+    url: server.url,
+    toolCount: server.tools.length,
+    connected: !server.error,
+    error: server.error || undefined,
+  }));
+}
+
+function getMcpToolsCatalog(serverId) {
+  const entries = serverId
+    ? Object.entries(mcpCache).filter(([id]) => id === serverId)
+    : Object.entries(mcpCache);
+
+  if (serverId && !entries.length) return { error: `No MCP server with id "${serverId}"` };
+
+  const tools = [];
+  for (const [id, server] of entries) {
+    if (server.error) continue;
+    for (const t of server.tools) {
+      tools.push({
+        name: `mcp__${id}__${t.name}`,
+        server: server.name,
+        description: t.description || "",
+        inputSchema: t.inputSchema || {},
+      });
+    }
+  }
+  return { tools };
+}
+
 async function callMcpTool(serverId, toolName, input) {
   const server = mcpCache[serverId];
   if (!server) return { error: "MCP server not connected — check server config and reload." };
   try {
-    const resp = await mcpPost(server.url, "tools/call", {
+    const { data: resp } = await mcpPost(server.url, "tools/call", {
       name: toolName,
       arguments: input ?? {},
-    }, Date.now());
+    }, Date.now(), server.sessionId);
     const content = resp.result?.content || [];
     const text = content.filter((c) => c.type === "text").map((c) => c.text).join("\n");
     if (resp.result?.isError) return { error: text || "Tool returned an error" };
@@ -138,6 +176,8 @@ async function callMcpTool(serverId, toolName, input) {
     return { error: err.message };
   }
 }
+
+
 
 async function handleScreenshot() {
   try {
