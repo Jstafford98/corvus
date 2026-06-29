@@ -91,6 +91,8 @@ Your API key is stored locally in `browser.storage.local` and is never sent anyw
 
 **What to know:** The key is stored as plain text on disk inside your Firefox profile. Anyone with access to your filesystem and your Firefox profile directory could read it. For a personal machine this is an acceptable tradeoff; if you're on a shared machine, be aware of that.
 
+**What gets sent to your provider:** Every tool result — screenshots, page text, element content, script output — is included in the message sent to your AI provider. If a tool runs while sensitive information is visible on the page (a password field that has been filled, an API key shown in a settings panel, a login form, a private document), that content may be captured and sent. You are shown an approval card before each tool executes, so you can deny any call that you think would capture something you don't want to share. As a general rule: if you wouldn't be comfortable with your AI provider seeing what's on screen, deny the tool call or navigate away first.
+
 ---
 
 ## MCP servers
