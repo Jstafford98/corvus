@@ -68,7 +68,7 @@ Or download the ZIP from GitHub and unzip it.
 
 The Corvus icon will appear in your toolbar. Click it to toggle the sidebar.
 
-> **Note:** Temporary add-ons are removed when Firefox restarts. You'll need to reload it each session until a signed release is available.
+> **Note:** Temporary add-ons are removed when Firefox fully quits. On macOS, closing the window is not the same as quitting — use **Cmd+Q** to actually exit. After a full quit and relaunch you'll need to reload the extension at `about:debugging`.
 
 **Step 3 — Configure your AI provider**
 
@@ -111,7 +111,7 @@ The extension discovers tools on startup and whenever you save server config. Di
 
 - **Firefox only** — MV2 sidebar APIs are not available in Chrome
 - **No automatic updates** — you pull and reload manually
-- **Temporary install** — removed on Firefox restart; must be reloaded at `about:debugging`
+- **Temporary install** — removed when Firefox fully quits (Cmd+Q on Mac); must be reloaded at `about:debugging`
 - **MCP transport** — only Streamable HTTP is supported; stdio and legacy HTTP+SSE are not
 - **No extension signing** — Firefox may warn about unsigned extensions
 
