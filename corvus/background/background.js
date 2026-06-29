@@ -315,6 +315,7 @@ async function handleExecuteScript({ code }) {
     if (!tabs.length) return { error: "No active tab" };
     const results = await browser.tabs.executeScript(tabs[0].id, {
       code: `(function() {
+        const browser = undefined, chrome = undefined;
         try {
           const __result = eval(${JSON.stringify(code)});
           if (__result === undefined) return { result: "undefined" };

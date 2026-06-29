@@ -6,13 +6,13 @@ An AI sidebar assistant for Firefox with browser control tools, conversation his
 
 > **⚠️ Early development — use at your own risk**
 >
-> Corvus is a personal project I'm building in the open. It is **not available on addons.mozilla.org** and requires a manual install. Features may break between updates, data may not migrate cleanly, and the codebase is moving fast. If something is broken or you have an idea, **[open an issue](../../issues)** — I read every one.
+> Corvus is a personal project I'm building in the open. It is **not available on addons.mozilla.org** and requires a manual install. Features may break between updates, data may not migrate cleanly, and the codebase is moving fast. If something is broken or you have an idea, **[open an issue](../../issues)**.
 
 ---
 
 ## What it does
 
-**AI sidebar** — a persistent panel in Firefox that connects to your AI provider of choice (Anthropic Claude, OpenAI, or any OpenAI-compatible endpoint like Ollama or LM Studio). Chat with it while you browse without switching tabs.
+**AI sidebar** — a persistent panel in Firefox that connects to your AI provider. Currently tested and supported with **Anthropic Claude** only. OpenAI and OpenAI-compatible endpoints (Ollama, LM Studio, etc.) are wired up but untested — use at your own risk and open an issue if something is off.
 
 **Browser control tools** — the AI can interact with the page you're on, with your approval for each action:
 
@@ -72,26 +72,22 @@ The Corvus icon will appear in your toolbar. Click it to toggle the sidebar.
 
 1. Click the gear icon in the sidebar (or go to Settings in the toolbar menu)
 2. Go to **Providers**
-3. Select your provider, enter your API key, and choose a model
+3. Select **Anthropic** (recommended — other providers are untested), enter your API key, and choose a model
 4. Click **Save**
 
 Your API key is stored locally in `browser.storage.local` and is never sent anywhere except directly to your chosen provider.
 
 ---
 
-## Optional: hide the duplicate sidebar header
+## API key security
 
-Firefox adds its own title bar above extension sidebars. If it bothers you, you can hide it with `userChrome.css`:
+**Where it's stored:** `browser.storage.local` — a sandboxed store that only this extension can read. Websites and other extensions cannot access it.
 
-1. Go to `about:profiles`, find your profile folder, and open or create `chrome/userChrome.css`
-2. Add:
+**Where it goes:** Directly from your browser to Anthropic's API over HTTPS. It does not pass through any server I control. There is no backend.
 
-```css
-#sidebar-header { display: none !important; }
-```
+**What the AI cannot do:** The `execute_script` tool (which lets the AI run JavaScript on a page) explicitly blocks access to `browser` and `chrome` extension APIs, so the AI cannot read your key out of storage — accidentally or otherwise.
 
-3. In `about:config`, set `toolkit.legacyUserProfileCustomizations.stylesheets` to `true`
-4. Restart Firefox
+**What to know:** The key is stored as plain text on disk inside your Firefox profile. Anyone with access to your filesystem and your Firefox profile directory could read it. For a personal machine this is an acceptable tradeoff; if you're on a shared machine, be aware of that.
 
 ---
 
